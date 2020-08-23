@@ -197,9 +197,26 @@ type ChubaoMonitorList struct {
 	Items           []ChubaoMonitor `json:"items"`
 }
 
+type PrometheusSpec struct {
+	ImageProm           string                   `json:"imageprom,omitempty"`
+	PortProm            int32                    `json:"portprom,omitempty"`
+	ImagePullPolicyProm v1.PullPolicy            `json:"imagePullPolicyprom,omitempty"`
+	ResourcesProm       v1.ResourceRequirements  `json:"resourcesprom,omitempty"`
+	HostPath            *v1.HostPathVolumeSource `json:"hostPath,omitempty"`
+}
+
+type GrafanaSpec struct {
+	ImageGrafana           string                  `json:"imagegrafana,omitempty"`
+	PortGrafana            int32                   `json:"portgrafana,omitempty"`
+	ImagePullPolicyGrafana v1.PullPolicy           `json:"imagePullPolicygrafana,omitempty"`
+	ResourcesGrafana       v1.ResourceRequirements `json:"resourcesgrafana,omitempty"`
+}
+
 type MonitorSpec struct {
-	ConsulUrl string `json:"consulUrl"`
-	Password  string `json:"password"`
+	Prometheus PrometheusSpec `json:"prometheus,omitempty"`
+	Grafana    GrafanaSpec    `json:"grafana,omitempty"`
+	ConsulUrl  string         `json:"consulUrl"`
+	Password   string         `json:"password"`
 }
 
 type GrafanaStatus string

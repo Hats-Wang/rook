@@ -31,7 +31,10 @@ const (
 	ComponentObjectStore = "objectstore"
 	ComponentConsul      = "consul"
 
-	MonitorNameLabel     = "chubao.rook.io/monitor"
+	MonitorNameLabel    = "chubao.rook.io/monitor"
+	ComponentGrafana    = "grafana"
+	ComponentPrometheus = "prometheus"
+
 	ObjectStoreNameLabel = "chubao.rook.io/objectstore"
 
 	ClusterServiceNameLabel = "chubao.rook.io/cluster-service"
