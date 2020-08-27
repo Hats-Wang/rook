@@ -35,3 +35,11 @@ func GetImagePullPolicy(policy v1.PullPolicy) v1.PullPolicy {
 
 	return v1.PullIfNotPresent
 }
+
+func GetHostPath(hostPath *v1.HostPathVolumeSource) *v1.HostPathVolumeSource {
+	if hostPath.Path != "" {
+		return hostPath
+	}
+
+	return &v1.HostPathVolumeSource{Path: "/prometheus-data"}
+}
