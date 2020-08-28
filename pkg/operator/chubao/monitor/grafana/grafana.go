@@ -6,6 +6,7 @@ import (
 	chubaoapi "github.com/rook/rook/pkg/apis/chubao.rook.io/v1alpha1"
 	"github.com/rook/rook/pkg/clusterd"
 	"github.com/rook/rook/pkg/operator/chubao/commons"
+	"github.com/rook/rook/pkg/operator/chubao/monitor/prometheus"
 	"github.com/rook/rook/pkg/operator/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,8 +22,9 @@ const (
 	InstanceName = "grafana"
 	ServiceName  = "grafana-service"
 
-	DefaultPort  = 3000
-	DefaultImage = "grafana/grafana:6.4.4"
+	DefaultPassword = "!!string 123456"
+	DefaultPort     = 3000
+	DefaultImage    = "grafana/grafana:6.4.4"
 )
 
 var matchLabels = map[string]string{
@@ -235,6 +237,10 @@ func createVolumeMounts(grafana *Grafana) []corev1.VolumeMount {
 	}
 }
 
+func (grafana *Grafana) getPrometheusUrl() string {
+	return fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", prometheus.ServiceName, grafana.namespace, grafana.grafanaObj.PortGrafana)
+}
+
 func createEnv(grafana *Grafana) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
@@ -248,6 +254,14 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 		{
 			Name:  "GF_SECURITY_ADMIN_PASSWORD",
 			Value: "123456",
+		},
+		{
+			Name:  "GRAFANA_PASSWORD",
+			Value: commons.GetPassword(grafana.grafanaObj.Password, DefaultPassword),
+		},
+		{
+			Name:  "PROMETHEUS_URL",
+			Value: grafana.getPrometheusUrl(),
 		},
 	}
 }

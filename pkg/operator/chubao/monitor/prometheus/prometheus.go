@@ -219,9 +219,9 @@ func createVolumeMounts(prometheus *Prometheus) []corev1.VolumeMount {
 
 func createEnv(prometheus *Prometheus) []corev1.EnvVar {
 	return []corev1.EnvVar{
-		/*	{
-			Name:  "GF_AUTH_BASIC_ENABLED",
-					Value: "true",
-			},*/
+		{
+			Name:  "CONSUL_ADDRESS",
+			Value: prometheus.prometheusObj.ConsulUrl,
+		},
 	}
 }

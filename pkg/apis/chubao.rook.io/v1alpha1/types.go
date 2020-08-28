@@ -203,6 +203,7 @@ type PrometheusSpec struct {
 	ImagePullPolicyProm v1.PullPolicy            `json:"imagePullPolicyprom,omitempty"`
 	ResourcesProm       v1.ResourceRequirements  `json:"resourcesprom,omitempty"`
 	HostPath            *v1.HostPathVolumeSource `json:"hostPath,omitempty"`
+	ConsulUrl           string                   `json:"consulUrl"`
 }
 
 type GrafanaSpec struct {
@@ -210,13 +211,12 @@ type GrafanaSpec struct {
 	PortGrafana            int32                   `json:"portgrafana,omitempty"`
 	ImagePullPolicyGrafana v1.PullPolicy           `json:"imagePullPolicygrafana,omitempty"`
 	ResourcesGrafana       v1.ResourceRequirements `json:"resourcesgrafana,omitempty"`
+	Password               string                  `json:"password,omitempty"`
 }
 
 type MonitorSpec struct {
 	Prometheus PrometheusSpec `json:"prometheus,omitempty"`
 	Grafana    GrafanaSpec    `json:"grafana,omitempty"`
-	ConsulUrl  string         `json:"consulUrl"`
-	Password   string         `json:"password"`
 }
 
 type GrafanaStatus string

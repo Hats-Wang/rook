@@ -43,3 +43,10 @@ func GetHostPath(hostPath *v1.HostPathVolumeSource) *v1.HostPathVolumeSource {
 
 	return &v1.HostPathVolumeSource{Path: "/prometheus-data"}
 }
+
+func GetPassword(Custom, Default string) string {
+	if Custom != "" {
+		return Custom
+	}
+	return Default
+}
