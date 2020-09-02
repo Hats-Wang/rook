@@ -122,14 +122,20 @@ func (e *MonitorEventHandler) workFunc(key string) error {
 		}
 		return fmt.Errorf("Unexpected error while getting monitor object: %s\n", err)
 	}
+	monitor.Status.Prometheus = chubaoapi.PrometheusStatusUnknown
+	monitor.Status.Grafana = chubaoapi.GrafanaStatusUnknown
 
 	logger.Infof("handling monitor object: %s", key)
 	// DeepCopy here to ensure nobody messes with the cache.
 	oldObj, newObj := monitor, monitor.DeepCopy()
 	// If sync was successful and Status has changed, update the Monitor.
 	if err = e.sync(newObj); err == nil && !reflect.DeepEqual(oldObj.Status, newObj.Status) {
-		// TODO liuchengyu PatchClusterStatus
-		//err = util.PatchClusterStatus(new, e.rookClient)
+		oldObj.Status = newObj.Status
+		clientSet := e.context.RookClientset
+		_, err := clientSet.ChubaoV1alpha1().ChubaoMonitors(namespace).Update(oldObj)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("failed to update prometheus and grafana status"))
+		}
 	}
 
 	return err
@@ -157,14 +163,17 @@ func (e *MonitorEventHandler) createMonitor(monitor *chubaoapi.ChubaoMonitor) er
 	ownerRef := newMonitorOwnerRef(monitor)
 	prom := prometheus.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
 	if err := prom.Deploy(); err != nil {
+		monitor.Status.Prometheus = chubaoapi.PrometheusStatusFailure
 		return errors.Wrap(err, "failed to start prometheus")
 	}
+	monitor.Status.Prometheus = chubaoapi.PrometheusStatusReady
 
 	graf := grafana.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
 	if err := graf.Deploy(); err != nil {
+		monitor.Status.Grafana = chubaoapi.GrafanaStatusFailure
 		return errors.Wrap(err, "failed to start grafana")
 	}
-
+	monitor.Status.Grafana = chubaoapi.GrafanaStatusReady
 	return nil
 }
 
