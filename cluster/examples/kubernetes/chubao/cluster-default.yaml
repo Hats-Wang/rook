@@ -6,7 +6,6 @@ metadata:
 spec:
   cfsVersion:
     serverImage: chubaofs/cfs-server:2.0.5
-    clientImage: chubaofs/cfs-client:2.0.5
     imagePullPolicy: IfNotPresent
 
   # The path on the host where configuration files will be persisted. Must be specified.
@@ -17,10 +16,7 @@ spec:
 
   master:
     replicas: 3
-    cluster: my-cluster
-    nodeSelector:
-      chuabaofs-master: enabled
-    logLevel: info
+    logLevel: error
     retainLogs: 2000
     port: 17010
     prof: 17020
@@ -34,9 +30,7 @@ spec:
 #        memory: "32Gi"
 #        cpu: "8000m"
   metaNode:
-    nodeSelector:
-      chuabaofs-metanode: enabled
-    logLevel: info
+    logLevel: error
     totalMem: 26843545600
     port: 17210
     prof: 17220
@@ -50,10 +44,8 @@ spec:
 #      limits:
 #        memory: "256Gi"
 #        cpu: "8000m"
-  dataDode:
-    nodeSelector:
-      chuabaofs-datanode: enabled
-    logLevel: info
+  dataNode:
+    logLevel: error
     port: 17310
     prof: 17320
     raftHeartbeat: 17330
@@ -69,21 +61,14 @@ spec:
 #      limits:
 #        memory: "32Gi"
 #        cpu: "8000m"
-  client:
-    replicas: 1
-    volName: test
-    owner: test-user
-    logLevel: info
-    exporterPort: 9530
-    prof: 17410
-    resources:
-      requests:
-        memory: "512Mi"
-        cpu: "500m"
-      limits:
-        memory: "1024Mi"
-        cpu: "1000m"
   consul:
     port: 8500
     image: consul:1.6.1
     imagePullPolicy: IfNotPresent
+#    resources:
+#      requests:
+#        memory: "256Mi"
+#        cpu: "100m"
+#      limits:
+#        memory: "512Mi"
+#        cpu: "500m"

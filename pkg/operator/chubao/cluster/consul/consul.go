@@ -6,6 +6,7 @@ import (
 	chubaoapi "github.com/rook/rook/pkg/apis/chubao.rook.io/v1alpha1"
 	"github.com/rook/rook/pkg/clusterd"
 	"github.com/rook/rook/pkg/operator/chubao/commons"
+	"github.com/rook/rook/pkg/operator/chubao/constants"
 	"github.com/rook/rook/pkg/operator/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -17,16 +18,34 @@ import (
 )
 
 const (
-	InstanceName = "consul"
-	ServiceName  = "consul-service"
+	instanceName = "consul"
+	serviceName  = "consul-service"
 
-	DefaultPort  = 8500
-	DefaultImage = "consul:1.6.1"
+	defaultPort  = 8500
+	defaultImage = "consul:1.6.1"
 )
 
-var matchLabels = map[string]string{
-	"application": "rook-chubao-operator",
-	"component":   "consul",
+const (
+	// message
+	MessageConsulCreated        = "Consul[%s] Deployment created"
+	MessageConsulServiceCreated = "Consul[%s] Service created"
+
+	// error message
+	MessageCreateConsulServiceFailed = "Failed to create Consul[%s] Service"
+	MessageCreateConsulFailed        = "Failed to create Consul[%s] Deployment"
+	MessageUpdateConsulFailed        = "Failed to update Consul[%s] Deployment"
+)
+
+func GetConsulUrl(clusterObj *chubaoapi.ChubaoCluster) string {
+	if clusterObj == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("http://%s.%s.%s:%d",
+		serviceName,
+		clusterObj.Namespace,
+		constants.ServiceDomainSuffix,
+		commons.GetIntValue(clusterObj.Spec.Consul.Port, defaultPort))
 }
 
 type Consul struct {
@@ -57,43 +76,54 @@ func New(
 		consulObj:           consulObj,
 		ownerRef:            ownerRef,
 		namespace:           clusterObj.Namespace,
-		port:                commons.GetIntValue(consulObj.Port, DefaultPort),
-		image:               commons.GetStringValue(consulObj.Image, DefaultImage),
+		port:                commons.GetIntValue(consulObj.Port, defaultPort),
+		image:               commons.GetStringValue(consulObj.Image, defaultImage),
 		imagePullPolicy:     commons.GetImagePullPolicy(consulObj.ImagePullPolicy),
 	}
 }
 
 func (consul *Consul) Deploy() error {
-	clientset := consul.context.Clientset
-	if _, err := k8sutil.CreateOrUpdateService(clientset, consul.namespace, consul.newConsulService()); err != nil {
-		return errors.Wrap(err, "failed to create Service for master")
-	}
+	labels := consulLabels(consul.clusterObj.Name)
+	clientSet := consul.context.Clientset
 
-	deployment := consul.newConsulDeployment()
-	msg := fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name)
-	if _, err := clientset.AppsV1().Deployments(consul.namespace).Create(deployment); err != nil {
+	service := consul.newConsulService(labels)
+	serviceKey := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
+	if _, err := k8sutil.CreateOrUpdateService(clientSet, consul.namespace, service); err != nil {
+		consul.recorder.Eventf(consul.clusterObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateConsulServiceFailed, serviceKey)
+		return errors.Wrapf(err, MessageCreateConsulServiceFailed, serviceKey)
+	}
+	consul.recorder.Eventf(consul.clusterObj, corev1.EventTypeNormal, constants.SuccessCreated, MessageConsulServiceCreated, serviceKey)
+
+	deployment := consul.newConsulDeployment(labels)
+	deploymentKey := fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name)
+	if _, err := clientSet.AppsV1().Deployments(consul.namespace).Create(deployment); err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
-			return errors.Wrap(err, fmt.Sprintf("failed to create Deployment for consul[%s]", msg))
+			consul.recorder.Eventf(consul.clusterObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateConsulFailed, deploymentKey)
+			return errors.Wrapf(err, MessageCreateConsulFailed, deploymentKey)
 		}
 
-		_, err := clientset.AppsV1().Deployments(consul.namespace).Update(deployment)
+		_, err := clientSet.AppsV1().Deployments(consul.namespace).Update(deployment)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to update Deployment for consul[%s]", msg))
+			consul.recorder.Eventf(consul.clusterObj, corev1.EventTypeWarning, constants.ErrUpdateFailed, MessageUpdateConsulFailed, deploymentKey)
+			return errors.Wrapf(err, MessageUpdateConsulFailed, deploymentKey)
 		}
 	}
-
+	consul.recorder.Eventf(consul.clusterObj, corev1.EventTypeNormal, constants.SuccessCreated, MessageConsulCreated, deploymentKey)
 	return nil
 }
 
-func (consul *Consul) newConsulService() *corev1.Service {
-	labels := commons.ConsulLabels(ServiceName, consul.clusterObj.Name)
+func consulLabels(clusterName string) map[string]string {
+	return commons.CommonLabels(constants.ComponentConsul, clusterName)
+}
+
+func (consul *Consul) newConsulService(labels map[string]string) *corev1.Service {
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       reflect.TypeOf(corev1.Service{}).Name(),
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            ServiceName,
+			Name:            serviceName,
 			Namespace:       consul.namespace,
 			OwnerReferences: []metav1.OwnerReference{consul.ownerRef},
 			Labels:          labels,
@@ -106,14 +136,13 @@ func (consul *Consul) newConsulService() *corev1.Service {
 					Protocol: corev1.ProtocolTCP,
 				},
 			},
-			Selector: matchLabels,
+			Selector: labels,
 		},
 	}
 	return service
 }
 
-func (consul *Consul) newConsulDeployment() *appsv1.Deployment {
-	labels := commons.ConsulLabels(InstanceName, consul.clusterObj.Name)
+func (consul *Consul) newConsulDeployment(labels map[string]string) *appsv1.Deployment {
 	replicas := int32(1)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -121,10 +150,10 @@ func (consul *Consul) newConsulDeployment() *appsv1.Deployment {
 			APIVersion: appsv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            InstanceName,
+			Name:            instanceName,
 			Namespace:       consul.namespace,
 			OwnerReferences: []metav1.OwnerReference{consul.ownerRef},
-			Labels:          matchLabels,
+			Labels:          labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,

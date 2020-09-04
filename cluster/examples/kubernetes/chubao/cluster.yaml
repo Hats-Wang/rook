@@ -15,15 +15,9 @@ spec:
   dataDirHostPath: /var/lib/rook
   logDirHostPath: /var/log/rook
   master:
-    cluster: my-cluster
     metanodeReservedMem: 67108864
   metaNode:
-    totalMem: 26843545600
+    totalMem: 524288000 
   dataNode:
     disks:
-      - /data0:21474836480
-      - /data1:21474836480
-  client:
-    replicas: 1
-    volName: my-volume
-    owner: vol-user
+      - /data0:52428800

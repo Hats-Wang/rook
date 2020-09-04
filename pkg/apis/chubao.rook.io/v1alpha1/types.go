@@ -134,40 +134,49 @@ type ChubaoHealthMessage struct {
 
 // VersionSpec represents the settings for the cfs-server version that Rook is orchestrating.
 type CFSVersionSpec struct {
-	ServerImage     string        `json:"serverImage"`
-	ClientImage     string        `json:"clientImage,omitempty"`
-	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// Docker image name for ChubaoFS Server.
+	// More info: https://kubernetes.io/docs/concepts/containers/images
+	// This field is optional to allow higher level config management to default or override
+	// container images in workload controllers like Deployments and StatefulSets.
+	// +optional
+	ServerImage string `json:"serverImage"`
+
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// Cannot be updated.
+	// +optional
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
 }
 
 type DataNodeSpec struct {
-	LogLevel       string                           `json:"logLevel,omitempty"`
-	Port           int32                            `json:"port,omitempty"`
-	Prof           int32                            `json:"prof,omitempty"`
-	ExporterPort   int32                            `json:"exporterPort,omitempty"`
-	RaftHeartbeat  int32                            `json:"raftHeartbeat,omitempty"`
-	RaftReplica    int32                            `json:"raftReplica,omitempty"`
-	Disks          []string                         `json:"disks"`
-	ZoneName       string                           `json:"zoneName,omitempty"`
-	UpdateStrategy appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
-	Resource       v1.ResourceRequirements          `json:"resource,omitempty"`
+	LogLevel          string                         `json:"logLevel,omitempty"`
+	Port              int32                          `json:"port,omitempty"`
+	Prof              int32                          `json:"prof,omitempty"`
+	ExporterPort      int32                          `json:"exporterPort,omitempty"`
+	RaftHeartbeatPort int32                          `json:"raftHeartbeatPort,omitempty"`
+	RaftReplicaPort   int32                          `json:"raftReplicaPort,omitempty"`
+	Disks             []string                       `json:"disks"`
+	Zone              string                         `json:"zone,omitempty"`
+	UpdateStrategy    appsv1.DaemonSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	Resource          v1.ResourceRequirements        `json:"resource,omitempty"`
 }
 
 type MetaNodeSpec struct {
-	LogLevel       string                           `json:"logLevel,omitempty"`
-	TotalMem       int64                            `json:"totalMem,omitempty"`
-	Port           int32                            `json:"port,omitempty"`
-	Prof           int32                            `json:"prof,omitempty"`
-	ExporterPort   int32                            `json:"exporterPort,omitempty"`
-	RaftHeartbeat  int32                            `json:"raftHeartbeat,omitempty"`
-	RaftReplica    int32                            `json:"raftReplica,omitempty"`
-	ZoneName       string                           `json:"zoneName,omitempty"`
-	UpdateStrategy appsv1.StatefulSetUpdateStrategy `json:"updateStrategy,omitempty"`
-	Resource       v1.ResourceRequirements          `json:"resource,omitempty"`
+	LogLevel          string                         `json:"logLevel,omitempty"`
+	TotalMem          int64                          `json:"totalMem,omitempty"`
+	Port              int32                          `json:"port,omitempty"`
+	Prof              int32                          `json:"prof,omitempty"`
+	ExporterPort      int32                          `json:"exporterPort,omitempty"`
+	RaftHeartbeatPort int32                          `json:"raftHeartbeatPort,omitempty"`
+	RaftReplicaPort   int32                          `json:"raftReplicaPort,omitempty"`
+	Zone              string                         `json:"zone,omitempty"`
+	UpdateStrategy    appsv1.DaemonSetUpdateStrategy `json:"updateStrategy,omitempty"`
+	Resource          v1.ResourceRequirements        `json:"resource,omitempty"`
 }
 
 type MasterSpec struct {
 	Replicas            int32                            `json:"replicas,omitempty"`
-	Cluster             string                           `json:"cluster"`
 	LogLevel            string                           `json:"logLevel,omitempty"`
 	RetainLogs          int32                            `json:"retainLogs,omitempty"`
 	Port                int32                            `json:"port,omitempty"`
