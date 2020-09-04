@@ -62,7 +62,7 @@ func getMasterStatusURL(serviceName, namespace string, port int32) string {
 }
 
 func (m *Master) GetStatus() (*MasterStatus, error) {
-	masterStatusURL := getMasterStatusURL(ServiceName, m.namespace, m.port)
+	masterStatusURL := getMasterStatusURL(defaultMasterServiceName, m.namespace, m.port)
 	return getStatus(masterStatusURL)
 }
 
