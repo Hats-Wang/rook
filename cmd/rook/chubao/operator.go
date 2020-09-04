@@ -61,7 +61,7 @@ func startCluster(cmd *cobra.Command, args []string) error {
 	//	rook.TerminateFatal(errors.Wrap(err, "failed to run operator\n"))
 	//}
 
-	c := controller.New(context, "")
+	c := controller.New(context, "rook-chubao-controller")
 	err := c.Run(1, stopCh)
 	if err != nil {
 		rook.TerminateFatal(errors.Wrap(err, "failed to run operator\n"))

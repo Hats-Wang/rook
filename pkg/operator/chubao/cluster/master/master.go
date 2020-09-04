@@ -1,6 +1,7 @@
 package master
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	chubaoapi "github.com/rook/rook/pkg/apis/chubao.rook.io/v1alpha1"
@@ -9,17 +10,17 @@ import (
 	"github.com/rook/rook/pkg/operator/chubao/commons"
 	"github.com/rook/rook/pkg/operator/chubao/constants"
 	"github.com/rook/rook/pkg/operator/k8sutil"
+	"io/ioutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/record"
+	"net/http"
 	"reflect"
 	"strings"
 )
-
-//var logger = capnslog.NewPackageLogger("github.com/rook/rook", "chubao-master")
 
 const (
 	instanceName               = "master"
@@ -39,6 +40,18 @@ const (
 	volumeNameForDataPath      = "pod-data-path"
 	defaultDataPathInContainer = "/cfs/data"
 	defaultLogPathInContainer  = "/cfs/logs"
+)
+
+const (
+	// message
+	MessageMasterCreated        = "Master[%s] StatefulSet created"
+	MessageMasterServiceCreated = "Master[%s] Service created"
+	MessageMasterServiceIsReady = "Master Service is ready"
+
+	// error message
+	MessageCreateMasterServiceFailed = "Failed to create Master[%s] Service"
+	MessageCreateMasterFailed        = "Failed to create Master[%s] StatefulSet"
+	MessageUpdateMasterFailed        = "Failed to update Master[%s] StatefulSet"
 )
 
 type Master struct {
@@ -95,23 +108,30 @@ func New(
 func (m *Master) Deploy() error {
 	labels := masterLabels(m.clusterObj.Name)
 	clientSet := m.context.Clientset
-	if _, err := k8sutil.CreateOrUpdateService(clientSet, m.namespace, m.newMasterService(labels)); err != nil {
-		return errors.Wrap(err, "failed to create Service for master")
+
+	service := m.newMasterService(labels)
+	serviceKey := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
+	if _, err := k8sutil.CreateOrUpdateService(clientSet, m.namespace, service); err != nil {
+		m.recorder.Eventf(m.clusterObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateMasterServiceFailed, serviceKey)
+		return errors.Wrapf(err, MessageCreateMasterServiceFailed, serviceKey)
 	}
+	m.recorder.Eventf(m.clusterObj, corev1.EventTypeNormal, constants.SuccessCreated, MessageMasterServiceCreated, serviceKey)
 
 	statefulSet := m.newMasterStatefulSet(labels)
-	msg := fmt.Sprintf("%s/%s", statefulSet.Namespace, statefulSet.Name)
+	statefulSetKey := fmt.Sprintf("%s/%s", statefulSet.Namespace, statefulSet.Name)
 	if _, err := clientSet.AppsV1().StatefulSets(m.namespace).Create(statefulSet); err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
-			return errors.Wrap(err, fmt.Sprintf("failed to create StatefulSet for master[%s]", msg))
+			m.recorder.Eventf(m.clusterObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateMasterFailed, statefulSetKey)
+			return errors.Wrapf(err, MessageCreateMasterFailed, statefulSetKey)
 		}
 
 		_, err := clientSet.AppsV1().StatefulSets(m.namespace).Update(statefulSet)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to update StatefulSet for master[%s]", msg))
+			m.recorder.Eventf(m.clusterObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageUpdateMasterFailed, statefulSetKey)
+			return errors.Wrapf(err, MessageUpdateMasterFailed, statefulSetKey)
 		}
 	}
-
+	m.recorder.Eventf(m.clusterObj, corev1.EventTypeNormal, constants.SuccessCreated, MessageMasterCreated, statefulSetKey)
 	return nil
 }
 
@@ -251,7 +271,12 @@ func (m *Master) getMasterPeers() string {
 }
 
 // master-0.master-service.svc.cluster.local:17110,master-1.master-service.svc.cluster.local:17110,master-2.master-service.svc.cluster.local:17110
-func GetMasterAddrs(clusterObj *chubaoapi.ChubaoCluster) string {
+func GetMasterAddr(clusterObj *chubaoapi.ChubaoCluster) string {
+	return strings.Join(GetMasterAddrs(clusterObj), ",")
+}
+
+// ["master-0.master-service.svc.cluster.local:17110","master-1.master-service.svc.cluster.local:17110","master-2.master-service.svc.cluster.local:17110"]
+func GetMasterAddrs(clusterObj *chubaoapi.ChubaoCluster) []string {
 	master := clusterObj.Spec.Master
 	replicas := func() int {
 		if master.Replicas == 0 {
@@ -275,5 +300,62 @@ func GetMasterAddrs(clusterObj *chubaoapi.ChubaoCluster) string {
 			defaultMasterServiceName, clusterObj.Namespace, constants.ServiceDomainSuffix, port))
 	}
 
-	return strings.Join(urls, ",")
+	return urls
+}
+
+func ServiceIsReady(cluster *chubaoapi.ChubaoCluster) (bool, error) {
+	addrs := GetMasterAddrs(cluster)
+	err, bytes := queryClusterInfo(addrs[0])
+	if err != nil {
+		return false, err
+	}
+
+	err, clusterInfo := convertToClusterInfo(bytes)
+	if err != nil {
+		return false, err
+	}
+
+	return len(clusterInfo.Name) > 0, nil
+}
+
+func convertToClusterInfo(bytes []byte) (error, *ClusterInfo) {
+	status := &ClusterInfo{}
+	result := &ResponseResult{}
+	result.Data = status
+	err := json.Unmarshal(bytes, result)
+	if err != nil {
+		return errors.Errorf("unmarshal data from response of Master[/admin/getCluster] fail. data[%s] err:%v", string(bytes), err), nil
+	}
+
+	return nil, status
+}
+
+func queryClusterInfo(addr string) (error, []byte) {
+	url := fmt.Sprintf("http://%s/admin/getCluster", addr)
+	resp, err := http.Get(url)
+	if err != nil {
+		return errors.Errorf("request Master[/admin/getCluster] fail. err:%v", err), nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("request Master[/admin/getCluster] StatusCode[%d] not ok", resp.StatusCode), nil
+	}
+
+	bytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Errorf("read stream from response of Master[/admin/getCluster] fail. err:%v", err), nil
+	}
+
+	return nil, bytes
+}
+
+type ResponseResult struct {
+	Code int         `json:"code"`
+	Msg  string      `json:"msg"`
+	Data interface{} `json:"data"`
+}
+
+type ClusterInfo struct {
+	Name       string `json:"Name"`
+	LeaderAddr string `json:"LeaderAddr"`
 }

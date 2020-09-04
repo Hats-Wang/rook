@@ -134,8 +134,19 @@ type ChubaoHealthMessage struct {
 
 // VersionSpec represents the settings for the cfs-server version that Rook is orchestrating.
 type CFSVersionSpec struct {
-	ServerImage     string        `json:"serverImage"`
-	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// Docker image name for ChubaoFS Server.
+	// More info: https://kubernetes.io/docs/concepts/containers/images
+	// This field is optional to allow higher level config management to default or override
+	// container images in workload controllers like Deployments and StatefulSets.
+	// +optional
+	ServerImage string `json:"serverImage"`
+
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// Cannot be updated.
+	// +optional
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
 }
 
 type DataNodeSpec struct {

@@ -172,7 +172,7 @@ func createPodSpec(dn *DataNode) corev1.PodSpec {
 					{Name: "CBFS_RAFT_HEARTBEAT_PORT", Value: fmt.Sprintf("%d", dn.raftHeartbeatPort)},
 					{Name: "CBFS_RAFT_REPLICA_PORT", Value: fmt.Sprintf("%d", dn.raftReplicaPort)},
 					{Name: "CBFS_EXPORTER_PORT", Value: fmt.Sprintf("%d", dn.exporterPort)},
-					{Name: "CBFS_MASTER_ADDRS", Value: master.GetMasterAddrs(dn.clusterObj)},
+					{Name: "CBFS_MASTER_ADDRS", Value: master.GetMasterAddr(dn.clusterObj)},
 					{Name: "CBFS_LOG_LEVEL", Value: dn.logLevel},
 					{Name: "CBFS_CONSUL_ADDR", Value: consul.GetConsulUrl(dn.clusterObj)},
 					{Name: "CBFS_DISKS", Value: strings.Join(dn.disks, ",")},

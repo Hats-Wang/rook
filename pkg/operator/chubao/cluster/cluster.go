@@ -14,15 +14,19 @@ import (
 	"github.com/rook/rook/pkg/operator/chubao/cluster/master"
 	"github.com/rook/rook/pkg/operator/chubao/cluster/metanode"
 	"github.com/rook/rook/pkg/operator/chubao/commons"
+	"github.com/rook/rook/pkg/operator/chubao/constants"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"reflect"
+	"time"
 )
 
 const (
@@ -166,6 +170,14 @@ func (e *ClusterEventHandler) createCluster(cluster *chubaoapi.ChubaoCluster) er
 		return errors.Wrap(err, "failed to deploy master")
 	}
 
+	// check master service if it is ready
+	stopCh := make(chan struct{})
+	wait.Until(func() {
+		checkMasterService(cluster, stopCh)
+	}, 5*time.Second, stopCh)
+
+	e.recorder.Eventf(cluster, corev1.EventTypeNormal, constants.SuccessCreated, master.MessageMasterServiceIsReady)
+
 	dn := datanode.New(e.context, e.kubeInformerFactory, e.recorder, cluster, ownerRef)
 	if err := dn.Deploy(); err != nil {
 		return errors.Wrap(err, "failed to deploy datanode")
@@ -177,6 +189,17 @@ func (e *ClusterEventHandler) createCluster(cluster *chubaoapi.ChubaoCluster) er
 	}
 
 	return nil
+}
+
+func checkMasterService(cluster *chubaoapi.ChubaoCluster, stopCh chan struct{}) {
+	ready, err := master.ServiceIsReady(cluster)
+	if err != nil || !ready {
+		logger.Warningf("master service not ready, check again later, key:%v/%v, err:%v", cluster.Namespace, cluster.Name, err)
+		return
+	}
+
+	logger.Warningf("master service is ready, key:%v/%v", cluster.Namespace, cluster.Name)
+	close(stopCh)
 }
 
 func newClusterOwnerRef(own metav1.Object) metav1.OwnerReference {

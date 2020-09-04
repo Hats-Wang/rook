@@ -38,3 +38,9 @@ const (
 	ComponentMonitor     = "monitor"
 	ComponentObjectStore = "objectstore"
 )
+
+const (
+	SuccessCreated  = "Created"
+	ErrCreateFailed = "ErrCreateFailed"
+	ErrUpdateFailed = "ErrUpdateFailed"
+)

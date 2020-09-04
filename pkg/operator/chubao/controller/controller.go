@@ -23,12 +23,7 @@ import (
 	"time"
 )
 
-const (
-	controllerName   = "chubao-controller"
-	clusterQueueName = "chubao-cluster-queue"
-)
-
-var logger = capnslog.NewPackageLogger("github.com/rook/rook", "chubao-controller")
+var logger = capnslog.NewPackageLogger("github.com/rook/rook", "rook-chubao-controller")
 
 // ClusterController encapsulates all the tools the controller needs
 // in order to talk to the Kubernetes API
@@ -68,9 +63,9 @@ func New(context *clusterd.Context, operatorNamespace string) *ClusterController
 	// Create event broadcaster
 	logger.Infof("creating event broadcaster...")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(logger.Infof)
+	//eventBroadcaster.StartLogging(logger.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: context.Clientset.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerName})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: operatorNamespace})
 
 	// Add event handling functions
 	clusterHandler := cluster.New(context, kubeInformerFactory, clusterInformer, recorder)
@@ -99,7 +94,7 @@ func New(context *clusterd.Context, operatorNamespace string) *ClusterController
 }
 
 // Run starts the ClusterController process loop
-func (cc *ClusterController) Run(threadiness int, stopCh <-chan struct{}) error {
+func (cc *ClusterController) Run(threadnum int, stopCh <-chan struct{}) error {
 	defer runtime.HandleCrash()
 	go cc.kubeInformerFactory.Start(stopCh)
 	go cc.rookInformerFactory.Start(stopCh)
@@ -119,7 +114,7 @@ func (cc *ClusterController) Run(threadiness int, stopCh <-chan struct{}) error 
 	}
 
 	logger.Info("starting workers")
-	for i := 0; i < threadiness; i++ {
+	for i := 0; i < threadnum; i++ {
 		go wait.Until(cc.clusterHandler.RunWorker, time.Second, stopCh)
 		go wait.Until(cc.monitorHandler.RunWorker, time.Second, stopCh)
 		go wait.Until(cc.objectStoreHandler.RunWorker, time.Second, stopCh)
