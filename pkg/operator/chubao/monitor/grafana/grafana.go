@@ -21,13 +21,13 @@ import (
 
 const (
 	// message
-	MessageGrafanaCreated        = "Consul[%s] Deployment created"
-	MessageGrafanaServiceCreated = "Consul[%s] Service created"
+	MessageGrafanaCreated        = "Grafana[%s] Deployment created"
+	MessageGrafanaServiceCreated = "Grafana[%s] Service created"
 
 	// error message
-	MessageCreateGrafanaServiceFailed = "Failed to create Consul[%s] Service"
-	MessageCreateGrafanaFailed        = "Failed to create Consul[%s] Deployment"
-	MessageUpdateGrafanaFailed        = "Failed to update Consul[%s] Deployment"
+	MessageCreateGrafanaServiceFailed = "Failed to create Grafana[%s] Service"
+	MessageCreateGrafanaFailed        = "Failed to create Grafana[%s] Deployment"
+	MessageUpdateGrafanaFailed        = "Failed to update Grafana[%s] Deployment"
 
 	instanceName = "grafana"
 	serviceName  = "grafana-service"

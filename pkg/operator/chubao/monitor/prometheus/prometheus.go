@@ -6,6 +6,7 @@ import (
 	chubaoapi "github.com/rook/rook/pkg/apis/chubao.rook.io/v1alpha1"
 	"github.com/rook/rook/pkg/clusterd"
 	"github.com/rook/rook/pkg/operator/chubao/commons"
+	"github.com/rook/rook/pkg/operator/chubao/constants"
 	"github.com/rook/rook/pkg/operator/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,11 +19,20 @@ import (
 )
 
 const (
-	InstanceName = "prometheus"
-	ServiceName  = "prometheus-service"
+	// message
+	MessagePrometheusCreated        = "Prometheus[%s] Deployment created"
+	MessagePrometheusServiceCreated = "Prometheus[%s] Service created"
 
-	DefaultPort  = 9090
-	DefaultImage = "prom/prometheus:v2.13.1"
+	// error message
+	MessageCreatePrometheusServiceFailed = "Failed to create Prometheus[%s] Service"
+	MessageCreatePrometheusFailed        = "Failed to create Prometheus[%s] Deployment"
+	MessageUpdatePrometheusFailed        = "Failed to update Prometheus[%s] Deployment"
+
+	instanceName = "prometheus"
+	serviceName  = "prometheus-service"
+
+	defaultPort  = 9090
+	defaultImage = "prom/prometheus:v2.13.1"
 )
 
 var matchLabels = map[string]string{
@@ -59,8 +69,8 @@ func New(
 		prometheusObj:       prometheusObj,
 		ownerRef:            ownerRef,
 		namespace:           monitorObj.Namespace,
-		port:                commons.GetIntValue(prometheusObj.PortProm, DefaultPort),
-		image:               commons.GetStringValue(prometheusObj.ImageProm, DefaultImage),
+		port:                commons.GetIntValue(prometheusObj.PortProm, defaultPort),
+		image:               commons.GetStringValue(prometheusObj.ImageProm, defaultImage),
 		imagePullPolicy:     commons.GetImagePullPolicy(prometheusObj.ImagePullPolicyProm),
 		hostPath:            commons.GetHostPath(prometheusObj.HostPath),
 	}
@@ -68,20 +78,28 @@ func New(
 
 func (prometheus *Prometheus) Deploy() error {
 	clientset := prometheus.context.Clientset
+	service := prometheus.newPrometheusService()
+	serviceKey := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
+
 	if _, err := k8sutil.CreateOrUpdateService(clientset, prometheus.namespace, prometheus.newPrometheusService()); err != nil {
-		return errors.Wrap(err, "failed to create Service for prometheus")
+
+		prometheus.recorder.Eventf(prometheus.monitorObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreatePrometheusServiceFailed, serviceKey)
+		return errors.Wrapf(err, MessageCreatePrometheusServiceFailed, serviceKey)
 	}
 
 	deployment := prometheus.newPrometheusDeployment()
-	msg := fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name)
+	deploymentKey := fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name)
 	if _, err := clientset.AppsV1().Deployments(prometheus.namespace).Create(deployment); err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
-			return errors.Wrap(err, fmt.Sprintf("failed to create Deployment for prometheus[%s]", msg))
+
+			prometheus.recorder.Eventf(prometheus.monitorObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreatePrometheusFailed, deploymentKey)
+			return errors.Wrapf(err, MessageCreatePrometheusFailed, deploymentKey)
 		}
 
 		_, err := clientset.AppsV1().Deployments(prometheus.namespace).Update(deployment)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to update Deployment for prometheus[%s]", msg))
+			prometheus.recorder.Eventf(prometheus.monitorObj, corev1.EventTypeWarning, constants.ErrUpdateFailed, MessageUpdatePrometheusFailed, deploymentKey)
+			return errors.Wrapf(err, MessageUpdatePrometheusFailed, deploymentKey)
 		}
 	}
 
@@ -89,14 +107,14 @@ func (prometheus *Prometheus) Deploy() error {
 }
 
 func (prometheus *Prometheus) newPrometheusService() *corev1.Service {
-	labels := commons.GrafanaLabels(ServiceName, prometheus.monitorObj.Name)
+	labels := prometheusLabel(prometheus.monitorObj.Name)
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       reflect.TypeOf(corev1.Service{}).Name(),
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            ServiceName,
+			Name:            serviceName,
 			Namespace:       prometheus.namespace,
 			OwnerReferences: []metav1.OwnerReference{prometheus.ownerRef},
 			Labels:          labels,
@@ -117,7 +135,7 @@ func (prometheus *Prometheus) newPrometheusService() *corev1.Service {
 }
 
 func (prometheus *Prometheus) newPrometheusDeployment() *appsv1.Deployment {
-	labels := commons.GrafanaLabels(InstanceName, prometheus.monitorObj.Name)
+	labels := prometheusLabel(prometheus.monitorObj.Name)
 	replicas := int32(1)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -125,7 +143,7 @@ func (prometheus *Prometheus) newPrometheusDeployment() *appsv1.Deployment {
 			APIVersion: appsv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            InstanceName,
+			Name:            instanceName,
 			Namespace:       prometheus.namespace,
 			OwnerReferences: []metav1.OwnerReference{prometheus.ownerRef},
 			Labels:          matchLabels,
@@ -224,4 +242,8 @@ func createEnv(prometheus *Prometheus) []corev1.EnvVar {
 			Value: prometheus.prometheusObj.ConsulUrl,
 		},
 	}
+}
+
+func prometheusLabel(monitorname string) map[string]string {
+	return commons.LabelsForMonitor(constants.ComponentPrometheus, monitorname)
 }
