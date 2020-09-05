@@ -6,6 +6,7 @@ import (
 	chubaoapi "github.com/rook/rook/pkg/apis/chubao.rook.io/v1alpha1"
 	"github.com/rook/rook/pkg/clusterd"
 	"github.com/rook/rook/pkg/operator/chubao/commons"
+	"github.com/rook/rook/pkg/operator/chubao/constants"
 	"github.com/rook/rook/pkg/operator/chubao/monitor/prometheus"
 	"github.com/rook/rook/pkg/operator/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,12 +20,21 @@ import (
 )
 
 const (
-	InstanceName = "grafana"
-	ServiceName  = "grafana-service"
+	// message
+	MessageGrafanaCreated        = "Consul[%s] Deployment created"
+	MessageGrafanaServiceCreated = "Consul[%s] Service created"
 
-	DefaultPassword = "!!string 123456"
-	DefaultPort     = 3000
-	DefaultImage    = "grafana/grafana:6.4.4"
+	// error message
+	MessageCreateGrafanaServiceFailed = "Failed to create Consul[%s] Service"
+	MessageCreateGrafanaFailed        = "Failed to create Consul[%s] Deployment"
+	MessageUpdateGrafanaFailed        = "Failed to update Consul[%s] Deployment"
+
+	instanceName = "grafana"
+	serviceName  = "grafana-service"
+
+	defaultPassword = "!!string 123456"
+	defaultPort     = 3000
+	defaultImage    = "grafana/grafana:6.4.4"
 )
 
 var matchLabels = map[string]string{
@@ -60,28 +70,36 @@ func New(
 		grafanaObj:          grafanaObj,
 		ownerRef:            ownerRef,
 		namespace:           monitorObj.Namespace,
-		port:                commons.GetIntValue(grafanaObj.PortGrafana, DefaultPort),
-		image:               commons.GetStringValue(grafanaObj.ImageGrafana, DefaultImage),
+		port:                commons.GetIntValue(grafanaObj.PortGrafana, defaultPort),
+		image:               commons.GetStringValue(grafanaObj.ImageGrafana, defaultImage),
 		imagePullPolicy:     commons.GetImagePullPolicy(grafanaObj.ImagePullPolicyGrafana),
 	}
 }
 
 func (grafana *Grafana) Deploy() error {
 	clientset := grafana.context.Clientset
-	if _, err := k8sutil.CreateOrUpdateService(clientset, grafana.namespace, grafana.newGrafanaService()); err != nil {
-		return errors.Wrap(err, "failed to create Service for grafana")
+	service := grafana.newGrafanaService()
+	serviceKey := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
+
+	if _, err := k8sutil.CreateOrUpdateService(clientset, grafana.namespace, service); err != nil {
+		grafana.recorder.Eventf(grafana.monitorObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateGrafanaServiceFailed, serviceKey)
+		return errors.Wrapf(err, MessageCreateGrafanaServiceFailed, serviceKey)
+
 	}
 
 	deployment := grafana.newGrafanaDeployment()
-	msg := fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name)
+	deploymentKey := fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name)
+
 	if _, err := clientset.AppsV1().Deployments(grafana.namespace).Create(deployment); err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
-			return errors.Wrap(err, fmt.Sprintf("failed to create Deployment for grafana[%s]", msg))
+			grafana.recorder.Eventf(grafana.monitorObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateGrafanaFailed, deploymentKey)
+			return errors.Wrapf(err, MessageCreateGrafanaFailed, deploymentKey)
 		}
 
 		_, err := clientset.AppsV1().Deployments(grafana.namespace).Update(deployment)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to update Deployment for grafana[%s]", msg))
+			grafana.recorder.Eventf(grafana.monitorObj, corev1.EventTypeWarning, constants.ErrUpdateFailed, MessageUpdateGrafanaFailed, deploymentKey)
+			return errors.Wrapf(err, MessageUpdateGrafanaFailed, deploymentKey)
 		}
 	}
 
@@ -89,14 +107,14 @@ func (grafana *Grafana) Deploy() error {
 }
 
 func (grafana *Grafana) newGrafanaService() *corev1.Service {
-	labels := commons.GrafanaLabels(ServiceName, grafana.monitorObj.Name)
+	labels := grafanaLabel(grafana.monitorObj.Name)
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       reflect.TypeOf(corev1.Service{}).Name(),
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            ServiceName,
+			Name:            serviceName,
 			Namespace:       grafana.namespace,
 			OwnerReferences: []metav1.OwnerReference{grafana.ownerRef},
 			Labels:          labels,
@@ -117,7 +135,7 @@ func (grafana *Grafana) newGrafanaService() *corev1.Service {
 }
 
 func (grafana *Grafana) newGrafanaDeployment() *appsv1.Deployment {
-	labels := commons.GrafanaLabels(InstanceName, grafana.monitorObj.Name)
+	labels := grafanaLabel(grafana.monitorObj.Name)
 	replicas := int32(1)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -125,7 +143,7 @@ func (grafana *Grafana) newGrafanaDeployment() *appsv1.Deployment {
 			APIVersion: appsv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            InstanceName,
+			Name:            instanceName,
 			Namespace:       grafana.namespace,
 			OwnerReferences: []metav1.OwnerReference{grafana.ownerRef},
 			Labels:          matchLabels,
@@ -257,7 +275,7 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 		},
 		{
 			Name:  "GRAFANA_PASSWORD",
-			Value: commons.GetPassword(grafana.grafanaObj.Password, DefaultPassword),
+			Value: commons.GetPassword(grafana.grafanaObj.Password, defaultPassword),
 		},
 		{
 			Name:  "PROMETHEUS_URL",
@@ -277,4 +295,8 @@ func createReadinessProbe(grafana *Grafana) *corev1.Probe {
 			},
 		},
 	}
+}
+
+func grafanaLabel(monitorname string) map[string]string {
+	return commons.LabelsForMonitor(constants.ComponentGrafana, monitorname)
 }
