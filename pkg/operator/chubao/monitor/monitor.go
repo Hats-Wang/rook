@@ -155,6 +155,8 @@ func (e *MonitorEventHandler) sync(monitor *chubaoapi.ChubaoMonitor) error {
 }
 
 func (e *MonitorEventHandler) deleteMonitor(monitor *chubaoapi.ChubaoMonitor) error {
+	monitor.Status.Grafana = chubaoapi.GrafanaStatusFailure
+	monitor.Status.Prometheus = chubaoapi.PrometheusStatusFailure
 	fmt.Printf("deleteMonitor: %v\n", monitor)
 	return nil
 }
