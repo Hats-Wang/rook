@@ -37,7 +37,6 @@ const (
 	ComponentClient      = "client"
 	ComponentMonitor     = "monitor"
 	ComponentObjectStore = "objectstore"
-	ComponentConsul      = "consul"
 
 	MonitorNameLabel    = "chubao.rook.io/monitor"
 	ComponentGrafana    = "grafana"

@@ -29,7 +29,7 @@ const (
 	MessageUpdatePrometheusFailed        = "Failed to update Prometheus[%s] Deployment"
 
 	instanceName = "prometheus"
-	serviceName  = "prometheus-service"
+	ServiceName  = "prometheus-service"
 
 	defaultPort  = 9090
 	defaultImage = "prom/prometheus:v2.13.1"
@@ -114,7 +114,7 @@ func (prometheus *Prometheus) newPrometheusService() *corev1.Service {
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            serviceName,
+			Name:            ServiceName,
 			Namespace:       prometheus.namespace,
 			OwnerReferences: []metav1.OwnerReference{prometheus.ownerRef},
 			Labels:          labels,
