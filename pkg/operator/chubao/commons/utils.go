@@ -41,7 +41,7 @@ func GetHostPath(hostPath *v1.HostPathVolumeSource) *v1.HostPathVolumeSource {
 		return hostPath
 	}
 
-	return &v1.HostPathVolumeSource{Path: "/prometheus-data"}
+	return &v1.HostPathVolumeSource{Path: "/var/lib/chubaofs_prometheus"}
 }
 
 func GetPassword(Custom, Default string) string {

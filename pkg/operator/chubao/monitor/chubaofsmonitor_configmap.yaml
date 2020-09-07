@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: monitor-config
-  namespace: test
+  namespace: rook-chubao
 data:
   prometheus.yml: |
     # my global config
