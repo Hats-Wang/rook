@@ -35,11 +35,6 @@ const (
 	defaultImage = "prom/prometheus:v2.13.1"
 )
 
-var matchLabels = map[string]string{
-	"application": "rook-chubao-operator",
-	"component":   "prometheus",
-}
-
 type Prometheus struct {
 	monitorObj          *chubaoapi.ChubaoMonitor
 	prometheusObj       chubaoapi.PrometheusSpec
@@ -86,6 +81,7 @@ func (prometheus *Prometheus) Deploy() error {
 		prometheus.recorder.Eventf(prometheus.monitorObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreatePrometheusServiceFailed, serviceKey)
 		return errors.Wrapf(err, MessageCreatePrometheusServiceFailed, serviceKey)
 	}
+	prometheus.recorder.Eventf(prometheus.monitorObj, corev1.EventTypeNormal, constants.SuccessCreated, MessagePrometheusServiceCreated, serviceKey)
 
 	deployment := prometheus.newPrometheusDeployment()
 	deploymentKey := fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name)
@@ -102,6 +98,7 @@ func (prometheus *Prometheus) Deploy() error {
 			return errors.Wrapf(err, MessageUpdatePrometheusFailed, deploymentKey)
 		}
 	}
+	prometheus.recorder.Eventf(prometheus.monitorObj, corev1.EventTypeNormal, constants.SuccessCreated, MessagePrometheusCreated, serviceKey)
 
 	return nil
 }
@@ -124,11 +121,11 @@ func (prometheus *Prometheus) newPrometheusService() *corev1.Service {
 				{
 					Name:       "port",
 					Port:       prometheus.port,
-					TargetPort: utilintstr.IntOrString{IntVal: prometheus.port, Type: utilintstr.Int},
+					TargetPort: utilintstr.IntOrString{IntVal: prometheus.port},
 					Protocol:   corev1.ProtocolTCP,
 				},
 			},
-			Selector: matchLabels,
+			Selector: labels,
 		},
 	}
 	return service
@@ -146,7 +143,7 @@ func (prometheus *Prometheus) newPrometheusDeployment() *appsv1.Deployment {
 			Name:            instanceName,
 			Namespace:       prometheus.namespace,
 			OwnerReferences: []metav1.OwnerReference{prometheus.ownerRef},
-			Labels:          matchLabels,
+			Labels:          labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,

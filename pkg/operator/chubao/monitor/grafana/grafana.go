@@ -37,11 +37,6 @@ const (
 	defaultImage    = "grafana/grafana:6.4.4"
 )
 
-var matchLabels = map[string]string{
-	"application": "rook-chubao-operator",
-	"component":   "grafana",
-}
-
 type Grafana struct {
 	monitorObj          *chubaoapi.ChubaoMonitor
 	grafanaObj          chubaoapi.GrafanaSpec
@@ -86,10 +81,10 @@ func (grafana *Grafana) Deploy() error {
 		return errors.Wrapf(err, MessageCreateGrafanaServiceFailed, serviceKey)
 
 	}
+	grafana.recorder.Eventf(grafana.monitorObj, corev1.EventTypeNormal, constants.SuccessCreated, MessageGrafanaServiceCreated, serviceKey)
 
 	deployment := grafana.newGrafanaDeployment()
 	deploymentKey := fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name)
-
 	if _, err := clientset.AppsV1().Deployments(grafana.namespace).Create(deployment); err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			grafana.recorder.Eventf(grafana.monitorObj, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateGrafanaFailed, deploymentKey)
@@ -102,6 +97,7 @@ func (grafana *Grafana) Deploy() error {
 			return errors.Wrapf(err, MessageUpdateGrafanaFailed, deploymentKey)
 		}
 	}
+	grafana.recorder.Eventf(grafana.monitorObj, corev1.EventTypeNormal, constants.SuccessCreated, MessageGrafanaCreated, serviceKey)
 
 	return nil
 }
@@ -124,11 +120,11 @@ func (grafana *Grafana) newGrafanaService() *corev1.Service {
 				{
 					Name:       "port",
 					Port:       grafana.port,
-					TargetPort: utilintstr.IntOrString{IntVal: grafana.port, Type: utilintstr.Int},
+					TargetPort: utilintstr.IntOrString{IntVal: grafana.port},
 					Protocol:   corev1.ProtocolTCP,
 				},
 			},
-			Selector: matchLabels,
+			Selector: labels,
 		},
 	}
 	return service
@@ -146,7 +142,7 @@ func (grafana *Grafana) newGrafanaDeployment() *appsv1.Deployment {
 			Name:            instanceName,
 			Namespace:       grafana.namespace,
 			OwnerReferences: []metav1.OwnerReference{grafana.ownerRef},
-			Labels:          matchLabels,
+			Labels:          labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
