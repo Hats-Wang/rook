@@ -38,7 +38,7 @@ data:
         metrics_path: /metrics
         scheme: http
         consul_sd_configs:
-            - server: "${CONSUL_ADDRESS}"
+            - server: http://consul-service.rook-chubao.svc.cluster.local:8500
               services:
                   - cfs
   init.sh: |
@@ -91,7 +91,7 @@ data:
     #echo "add dashboard"
     curl  -X POST --insecure -H "Authorization: Bearer ${key}" -H "Content-Type: application/json" -d @/grafana/dashboard.json ${url2}/api/dashboards/db
   config.monitor: |
-    ECURITY_ADMIN_PASSWORD="${GRAFANA_PASSWORD}"
+    ECURITY_ADMIN_PASSWORD=!!string123456
     GF_USERS_ALLOW_SIGN_UP=false
   grafana.ini: |
     ##################### Grafana Configuration Defaults #####################
@@ -669,7 +669,7 @@ data:
       # <int> org id. will default to orgId 1 if not specified
       orgId: 1
       # <string> url
-      url: "${PROMETHEUS_URL}"
+      url: http://prometheus-service.rook-chubao.svc.cluster.local:9090
       # <string> database password, if used
       password:
       # <string> database user, if used

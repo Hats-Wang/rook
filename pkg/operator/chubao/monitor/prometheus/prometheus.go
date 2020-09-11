@@ -238,6 +238,10 @@ func createEnv(prometheus *Prometheus) []corev1.EnvVar {
 			Name:  "CONSUL_ADDRESS",
 			Value: prometheus.prometheusObj.ConsulUrl,
 		},
+		{
+			Name:  "TZ",
+			Value: " Asia/Shanghai",
+		},
 	}
 }
 
