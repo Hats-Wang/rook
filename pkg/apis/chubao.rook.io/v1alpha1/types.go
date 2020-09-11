@@ -207,20 +207,20 @@ type ChubaoMonitorList struct {
 }
 
 type PrometheusSpec struct {
-	ImageProm           string                   `json:"image,omitempty"`
-	PortProm            int32                    `json:"port,omitempty"`
-	ImagePullPolicyProm v1.PullPolicy            `json:"imagePullPolicy,omitempty"`
-	ResourcesProm       v1.ResourceRequirements  `json:"resources,omitempty"`
-	HostPath            *v1.HostPathVolumeSource `json:"hostPath,omitempty"`
-	ConsulUrl           string                   `json:"consulUrl"`
+	Image           string                   `json:"image,omitempty"`
+	Port            int32                    `json:"port,omitempty"`
+	ImagePullPolicy v1.PullPolicy            `json:"imagePullPolicy,omitempty"`
+	Resources       v1.ResourceRequirements  `json:"resources,omitempty"`
+	HostPath        *v1.HostPathVolumeSource `json:"hostPath,omitempty"`
+	ConsulUrl       string                   `json:"consulUrl"`
 }
 
 type GrafanaSpec struct {
-	ImageGrafana           string                  `json:"image,omitempty"`
-	PortGrafana            int32                   `json:"port,omitempty"`
-	ImagePullPolicyGrafana v1.PullPolicy           `json:"imagePullPolicy,omitempty"`
-	ResourcesGrafana       v1.ResourceRequirements `json:"resources,omitempty"`
-	Password               string                  `json:"password,omitempty"`
+	Image           string                  `json:"image,omitempty"`
+	Port            int32                   `json:"port,omitempty"`
+	ImagePullPolicy v1.PullPolicy           `json:"imagePullPolicy,omitempty"`
+	Resources       v1.ResourceRequirements `json:"resources,omitempty"`
+	Password        string                  `json:"password,omitempty"`
 }
 
 type MonitorSpec struct {

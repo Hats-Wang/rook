@@ -65,9 +65,9 @@ func New(
 		grafanaObj:          grafanaObj,
 		ownerRef:            ownerRef,
 		namespace:           monitorObj.Namespace,
-		port:                commons.GetIntValue(grafanaObj.PortGrafana, defaultPort),
-		image:               commons.GetStringValue(grafanaObj.ImageGrafana, defaultImage),
-		imagePullPolicy:     commons.GetImagePullPolicy(grafanaObj.ImagePullPolicyGrafana),
+		port:                commons.GetIntValue(grafanaObj.Port, defaultPort),
+		image:               commons.GetStringValue(grafanaObj.Image, defaultImage),
+		imagePullPolicy:     commons.GetImagePullPolicy(grafanaObj.ImagePullPolicy),
 	}
 }
 
@@ -180,7 +180,7 @@ func createPodSpec(grafana *Grafana) corev1.PodSpec {
 						Name: "port", ContainerPort: grafana.port, Protocol: corev1.ProtocolTCP,
 					},
 				},
-				Resources: grafana.grafanaObj.ResourcesGrafana,
+				Resources: grafana.grafanaObj.Resources,
 				Env:       createEnv(grafana),
 				// If grafana pod show the err "back-off restarting failed container", run this command to keep the container running ang then run ./run.sh in the container to check the really error.
 				//          Command:        []string{"/bin/bash", "-ce", "tail -f /dev/null"},

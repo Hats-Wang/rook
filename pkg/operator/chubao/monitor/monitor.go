@@ -10,8 +10,10 @@ import (
 	listers "github.com/rook/rook/pkg/client/listers/chubao.rook.io/v1alpha1"
 	"github.com/rook/rook/pkg/clusterd"
 	"github.com/rook/rook/pkg/operator/chubao/commons"
+	"github.com/rook/rook/pkg/operator/chubao/constants"
 	"github.com/rook/rook/pkg/operator/chubao/monitor/grafana"
 	"github.com/rook/rook/pkg/operator/chubao/monitor/prometheus"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,6 +26,11 @@ import (
 )
 
 const (
+	// message
+	MessageMonitorCreated = "Monitor[%s] Deployment"
+	// error message
+	MessageCreateMonitorFailed = "Failed to create Monitor[%s]"
+
 	DefaultNamespace = "default"
 	componentName    = "monitor"
 	monitorQueueName = "chubao-monitor-queue"
@@ -163,19 +170,26 @@ func (e *MonitorEventHandler) deleteMonitor(monitor *chubaoapi.ChubaoMonitor) er
 
 func (e *MonitorEventHandler) createMonitor(monitor *chubaoapi.ChubaoMonitor) error {
 	ownerRef := newMonitorOwnerRef(monitor)
+	monitorKey := fmt.Sprintf("%s/%s", monitor.Name, monitor.Namespace)
 	prom := prometheus.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
+
 	if err := prom.Deploy(); err != nil {
 		monitor.Status.Prometheus = chubaoapi.PrometheusStatusFailure
+		e.recorder.Eventf(monitor, corev1.EventTypeWarning, constants.SuccessCreated, MessageCreateMonitorFailed, monitorKey)
 		return errors.Wrap(err, "failed to start prometheus")
 	}
 	monitor.Status.Prometheus = chubaoapi.PrometheusStatusReady
 
 	graf := grafana.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
+
 	if err := graf.Deploy(); err != nil {
 		monitor.Status.Grafana = chubaoapi.GrafanaStatusFailure
+		e.recorder.Eventf(monitor, corev1.EventTypeWarning, constants.SuccessCreated, MessageCreateMonitorFailed, monitorKey)
 		return errors.Wrap(err, "failed to start grafana")
 	}
 	monitor.Status.Grafana = chubaoapi.GrafanaStatusReady
+
+	e.recorder.Eventf(monitor, corev1.EventTypeNormal, constants.SuccessCreated, MessageMonitorCreated, monitorKey)
 	return nil
 }
 

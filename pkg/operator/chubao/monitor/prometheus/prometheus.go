@@ -64,9 +64,9 @@ func New(
 		prometheusObj:       prometheusObj,
 		ownerRef:            ownerRef,
 		namespace:           monitorObj.Namespace,
-		port:                commons.GetIntValue(prometheusObj.PortProm, defaultPort),
-		image:               commons.GetStringValue(prometheusObj.ImageProm, defaultImage),
-		imagePullPolicy:     commons.GetImagePullPolicy(prometheusObj.ImagePullPolicyProm),
+		port:                commons.GetIntValue(prometheusObj.Port, defaultPort),
+		image:               commons.GetStringValue(prometheusObj.Image, defaultImage),
+		imagePullPolicy:     commons.GetImagePullPolicy(prometheusObj.ImagePullPolicy),
 		hostPath:            commons.GetHostPath(prometheusObj.HostPath),
 	}
 }
@@ -181,7 +181,7 @@ func createPodSpec(prometheus *Prometheus) corev1.PodSpec {
 						Name: "port", ContainerPort: prometheus.port, Protocol: corev1.ProtocolTCP,
 					},
 				},
-				Resources: prometheus.prometheusObj.ResourcesProm,
+				Resources: prometheus.prometheusObj.Resources,
 				Env:       createEnv(prometheus),
 				// If grafana pod show the err "back-off restarting failed container", run this command to keep the container running ang then run ./run.sh in the container to check real error.
 				//          Command:        []string{"/bin/bash", "-ce", "tail -f /dev/null"},
