@@ -262,8 +262,23 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 			Value: "false",
 		},
 		{
-			Name:  "GF_SECURITY_ADMIN_PASSWORD",
-			Value: "123456",
+			Name: "GF_SECURITY_ADMIN_USER",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "useraccount"},
+					Key:                  "uername",
+				},
+			},
+		},
+
+		{
+			Name: "GF_SECURITY_ADMIN_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "useraccount"},
+					Key:                  "uerpasswd",
+				},
+			},
 		},
 		{
 			Name:  "GRAFANA_PASSWORD",
