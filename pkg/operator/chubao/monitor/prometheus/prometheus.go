@@ -18,6 +18,9 @@ import (
 	"reflect"
 )
 
+//set below
+var PrometheusUrl string
+
 const (
 	// message
 	MessagePrometheusCreated        = "Prometheus[%s] Deployment created"
@@ -29,7 +32,7 @@ const (
 	MessageUpdatePrometheusFailed        = "Failed to update Prometheus[%s] Deployment"
 
 	instanceName = "prometheus"
-	ServiceName  = "prometheus-service"
+	serviceName  = "prometheus-service"
 
 	defaultPort  = 9090
 	defaultImage = "prom/prometheus:v2.13.1"
@@ -111,7 +114,7 @@ func (prometheus *Prometheus) newPrometheusService() *corev1.Service {
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            ServiceName,
+			Name:            serviceName,
 			Namespace:       prometheus.namespace,
 			OwnerReferences: []metav1.OwnerReference{prometheus.ownerRef},
 			Labels:          labels,
@@ -247,4 +250,8 @@ func createEnv(prometheus *Prometheus) []corev1.EnvVar {
 
 func prometheusLabel(monitorname string) map[string]string {
 	return commons.LabelsForMonitor(constants.ComponentPrometheus, monitorname)
+}
+
+func (prometheus *Prometheus) getPrometheusUrl() {
+	PrometheusUrl = fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", serviceName, prometheus.namespace, prometheus.port)
 }

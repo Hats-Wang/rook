@@ -251,10 +251,6 @@ func createVolumeMounts(grafana *Grafana) []corev1.VolumeMount {
 	}
 }
 
-func (grafana *Grafana) getPrometheusUrl() string {
-	return fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", prometheus.ServiceName, grafana.namespace, grafana.grafanaObj.PortGrafana)
-}
-
 func createEnv(grafana *Grafana) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
@@ -275,7 +271,7 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 		},
 		{
 			Name:  "PROMETHEUS_URL",
-			Value: grafana.getPrometheusUrl(),
+			Value: prometheus.PrometheusUrl,
 		},
 	}
 }
