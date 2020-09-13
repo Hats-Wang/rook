@@ -1,7 +1,10 @@
 package monitor
 
 import (
+	"context"
 	"fmt"
+	"reflect"
+
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
 	chubaorookio "github.com/rook/rook/pkg/apis/chubao.rook.io"
@@ -14,20 +17,21 @@ import (
 	"github.com/rook/rook/pkg/operator/chubao/monitor/grafana"
 	"github.com/rook/rook/pkg/operator/chubao/monitor/prometheus"
 	corev1 "k8s.io/api/core/v1"
+	Error "k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"reflect"
 )
 
 const (
 	// message
-	MessageMonitorCreated = "Monitor[%s] Deployment"
+	MessageMonitorCreated = "Monitor[%s] created"
 	// error message
 	MessageCreateMonitorFailed = "Failed to create Monitor[%s]"
 
@@ -131,8 +135,10 @@ func (e *MonitorEventHandler) workFunc(key string) error {
 	}
 	monitor.Status.Prometheus = chubaoapi.PrometheusStatusUnknown
 	monitor.Status.Grafana = chubaoapi.GrafanaStatusUnknown
+	monitor.Status.Configmap = chubaoapi.ConfigmapStatusUnknown
 
 	logger.Infof("handling monitor object: %s", key)
+
 	// DeepCopy here to ensure nobody messes with the cache.
 	oldObj, newObj := monitor, monitor.DeepCopy()
 	// If sync was successful and Status has changed, update the Monitor.
@@ -164,18 +170,38 @@ func (e *MonitorEventHandler) sync(monitor *chubaoapi.ChubaoMonitor) error {
 func (e *MonitorEventHandler) deleteMonitor(monitor *chubaoapi.ChubaoMonitor) error {
 	monitor.Status.Grafana = chubaoapi.GrafanaStatusFailure
 	monitor.Status.Prometheus = chubaoapi.PrometheusStatusFailure
-	fmt.Printf("deleteMonitor: %v\n", monitor)
+	fmt.Printf("delete ChubaoMonitor: %v\n", monitor)
 	return nil
 }
 
 func (e *MonitorEventHandler) createMonitor(monitor *chubaoapi.ChubaoMonitor) error {
+
+	client := e.context.Client
+	configmap := &corev1.ConfigMap{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "monitor-config", Namespace: monitor.Namespace}, configmap)
+	if err != nil && Error.IsNotFound(err) {
+		monitor.Status.Configmap = chubaoapi.ConfigmapStatusFailure
+		return errors.Wrap(err, "Failed to find configmap, configmap not found")
+	} else if err != nil {
+		monitor.Status.Configmap = chubaoapi.ConfigmapStatusFailure
+		return errors.Wrap(err, "Failed to fetch chubaomonitor configmap")
+	} else {
+		err = ProcessConfigmap(configmap)
+		if err != nil {
+			monitor.Status.Configmap = chubaoapi.ConfigmapStatusFailure
+			return errors.Wrap(err, "Failed to add chubaofs.json and dashboard.yml to configmap")
+		}
+
+		monitor.Status.Configmap = chubaoapi.ConfigmapStatusReady
+	}
+
 	ownerRef := newMonitorOwnerRef(monitor)
 	monitorKey := fmt.Sprintf("%s/%s", monitor.Name, monitor.Namespace)
 	prom := prometheus.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
 
 	if err := prom.Deploy(); err != nil {
 		monitor.Status.Prometheus = chubaoapi.PrometheusStatusFailure
-		e.recorder.Eventf(monitor, corev1.EventTypeWarning, constants.SuccessCreated, MessageCreateMonitorFailed, monitorKey)
+		e.recorder.Eventf(monitor, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateMonitorFailed, monitorKey)
 		return errors.Wrap(err, "failed to start prometheus")
 	}
 	monitor.Status.Prometheus = chubaoapi.PrometheusStatusReady

@@ -266,7 +266,7 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{Name: "useraccount"},
-					Key:                  "uername",
+					Key:                  "username",
 				},
 			},
 		},
@@ -276,14 +276,14 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{Name: "useraccount"},
-					Key:                  "uerpasswd",
+					Key:                  "userpasswd",
 				},
 			},
 		},
-		{
-			Name:  "GRAFANA_PASSWORD",
-			Value: commons.GetPassword(grafana.grafanaObj.Password, defaultPassword),
-		},
+		/*		{
+				Name:  "GRAFANA_PASSWORD",
+				Value: commons.GetPassword(grafana.grafanaObj.Password, defaultPassword),
+			},*/
 		{
 			Name:  "PROMETHEUS_URL",
 			Value: prometheus.PrometheusUrl,

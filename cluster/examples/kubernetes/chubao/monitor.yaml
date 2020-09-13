@@ -7,7 +7,7 @@ metadata:
   namespace: rook-chubao
 stringData:
   username: "admin"
-  userpassword: "123456"
+  userpasswd: "123456"
 ---
 apiVersion: chubao.rook.io/v1alpha1
 kind: ChubaoMonitor

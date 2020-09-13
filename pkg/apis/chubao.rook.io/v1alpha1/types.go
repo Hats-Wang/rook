@@ -244,9 +244,18 @@ const (
 	PrometheusStatusUnknown PrometheusStatus = "Unknown"
 )
 
+type ConfigmapStatus string
+
+const (
+	ConfigmapStatusReady   ConfigmapStatus = "Ready"
+	ConfigmapStatusFailure ConfigmapStatus = "Failure"
+	ConfigmapStatusUnknown ConfigmapStatus = "Unknown"
+)
+
 type MonitorStatus struct {
 	Grafana    GrafanaStatus    `json:"grafana"`
 	Prometheus PrometheusStatus `json:"prometheus"`
+	Configmap  ConfigmapStatus  `json:"configmap"`
 }
 
 // +genclient
