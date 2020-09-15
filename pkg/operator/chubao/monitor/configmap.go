@@ -8,13 +8,17 @@ import (
 	"net/http"
 )
 
-func ProcessConfigmap(cfg *corev1.ConfigMap) error {
+func AddDataToConfigmap(cfg *corev1.ConfigMap) error {
 
 	err := addDashboardsyml(cfg)
 	if err != nil {
 		return err
 	}
 	err = addChubaoFSJson(cfg)
+	if err != nil {
+		return err
+	}
+	err = addDatasource(cfg)
 	if err != nil {
 		return err
 	}
@@ -39,7 +43,7 @@ func addDashboardsyml(cfg *corev1.ConfigMap) error {
 		return fmt.Errorf("failed to get the response content")
 	}
 	dashboardyml := string(dashboard)
-	cfg.Data["dashboard.yml"] = string(dashboardyml)
+	cfg.Data["dashboard.yml"] = dashboardyml
 	return nil
 }
 
@@ -61,5 +65,11 @@ func addChubaoFSJson(cfg *corev1.ConfigMap) error {
 	}
 	chubaoJson := string(chubao)
 	cfg.Data["chubaofs.json"] = chubaoJson
+	return nil
+}
+
+func addDatasource(cfg *corev1.ConfigMap) error {
+
+	cfg.Data["datasource.yml"] = datasourceyml
 	return nil
 }

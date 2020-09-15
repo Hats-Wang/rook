@@ -19,7 +19,7 @@ import (
 )
 
 //set below
-var PrometheusUrl string
+var PrometheusServiceUrl string
 
 const (
 	// message
@@ -253,5 +253,5 @@ func prometheusLabel(monitorname string) map[string]string {
 }
 
 func (prometheus *Prometheus) getPrometheusUrl() {
-	PrometheusUrl = fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", serviceName, prometheus.namespace, prometheus.port)
+	PrometheusServiceUrl = fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", serviceName, prometheus.namespace, prometheus.port)
 }

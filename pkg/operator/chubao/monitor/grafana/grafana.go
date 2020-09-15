@@ -270,7 +270,6 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 				},
 			},
 		},
-
 		{
 			Name: "GF_SECURITY_ADMIN_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
@@ -280,10 +279,6 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 				},
 			},
 		},
-		/*		{
-				Name:  "GRAFANA_PASSWORD",
-				Value: commons.GetPassword(grafana.grafanaObj.Password, defaultPassword),
-			},*/
 		{
 			Name:  "PROMETHEUS_URL",
 			Value: prometheus.PrometheusUrl,

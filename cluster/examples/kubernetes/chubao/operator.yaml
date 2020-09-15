@@ -17,6 +17,6 @@ spec:
       serviceAccount: rook-chubao-operator
       containers:
         - name: rook-chubao-operator
-          image: chubaofs/cfs-operator:0.0.1
+          image: chubaofs/cfs-operator:0.0.5
           imagePullPolicy: IfNotPresent
           args: ["chubao", "operator"]

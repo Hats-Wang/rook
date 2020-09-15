@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -175,23 +177,34 @@ func (e *MonitorEventHandler) deleteMonitor(monitor *chubaoapi.ChubaoMonitor) er
 }
 
 func (e *MonitorEventHandler) createMonitor(monitor *chubaoapi.ChubaoMonitor) error {
-
-	client := e.context.Client
+	clt, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		fmt.Println("failed to create client")
+		return err
+	}
 	configmap := &corev1.ConfigMap{}
-	err := client.Get(context.Background(), types.NamespacedName{Name: "monitor-config", Namespace: monitor.Namespace}, configmap)
+
+	err = clt.Get(context.Background(), types.NamespacedName{Name: "monitor-config", Namespace: monitor.Namespace}, configmap)
 	if err != nil && Error.IsNotFound(err) {
 		monitor.Status.Configmap = chubaoapi.ConfigmapStatusFailure
-		return errors.Wrap(err, "Failed to find configmap, configmap not found")
+		return errors.Wrap(err, "Failed to find chubaomonitor configmap")
 	} else if err != nil {
 		monitor.Status.Configmap = chubaoapi.ConfigmapStatusFailure
+		fmt.Println("Failed to fetch chubaomonitor configmap")
 		return errors.Wrap(err, "Failed to fetch chubaomonitor configmap")
 	} else {
-		err = ProcessConfigmap(configmap)
+
+		err = AddDataToConfigmap(configmap)
 		if err != nil {
 			monitor.Status.Configmap = chubaoapi.ConfigmapStatusFailure
 			return errors.Wrap(err, "Failed to add chubaofs.json and dashboard.yml to configmap")
 		}
+		err = clt.Update(context.Background(), configmap)
+		if err != nil {
 
+			return errors.Wrap(err, "Failed to update chubaomonitor configmap to the newest")
+		}
+		fmt.Println("configmap is ready")
 		monitor.Status.Configmap = chubaoapi.ConfigmapStatusReady
 	}
 
