@@ -102,7 +102,7 @@ func (prometheus *Prometheus) Deploy() error {
 		}
 	}
 	prometheus.recorder.Eventf(prometheus.monitorObj, corev1.EventTypeNormal, constants.SuccessCreated, MessagePrometheusCreated, serviceKey)
-
+	prometheus.getPrometheusUrl()
 	return nil
 }
 

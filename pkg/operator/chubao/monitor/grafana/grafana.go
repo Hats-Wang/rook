@@ -7,7 +7,6 @@ import (
 	"github.com/rook/rook/pkg/clusterd"
 	"github.com/rook/rook/pkg/operator/chubao/commons"
 	"github.com/rook/rook/pkg/operator/chubao/constants"
-	"github.com/rook/rook/pkg/operator/chubao/monitor/prometheus"
 	"github.com/rook/rook/pkg/operator/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -278,10 +277,6 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 					Key:                  "userpasswd",
 				},
 			},
-		},
-		{
-			Name:  "PROMETHEUS_URL",
-			Value: prometheus.PrometheusUrl,
 		},
 	}
 }

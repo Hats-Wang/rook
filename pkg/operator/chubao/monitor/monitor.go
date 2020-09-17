@@ -177,6 +177,17 @@ func (e *MonitorEventHandler) deleteMonitor(monitor *chubaoapi.ChubaoMonitor) er
 }
 
 func (e *MonitorEventHandler) createMonitor(monitor *chubaoapi.ChubaoMonitor) error {
+	ownerRef := newMonitorOwnerRef(monitor)
+	monitorKey := fmt.Sprintf("%s/%s", monitor.Name, monitor.Namespace)
+	prom := prometheus.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
+
+	if err := prom.Deploy(); err != nil {
+		monitor.Status.Prometheus = chubaoapi.PrometheusStatusFailure
+		e.recorder.Eventf(monitor, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateMonitorFailed, monitorKey)
+		return errors.Wrap(err, "failed to start prometheus")
+	}
+	monitor.Status.Prometheus = chubaoapi.PrometheusStatusReady
+
 	clt, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
 	if err != nil {
 		fmt.Println("failed to create client")
@@ -207,17 +218,6 @@ func (e *MonitorEventHandler) createMonitor(monitor *chubaoapi.ChubaoMonitor) er
 		fmt.Println("configmap is ready")
 		monitor.Status.Configmap = chubaoapi.ConfigmapStatusReady
 	}
-
-	ownerRef := newMonitorOwnerRef(monitor)
-	monitorKey := fmt.Sprintf("%s/%s", monitor.Name, monitor.Namespace)
-	prom := prometheus.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
-
-	if err := prom.Deploy(); err != nil {
-		monitor.Status.Prometheus = chubaoapi.PrometheusStatusFailure
-		e.recorder.Eventf(monitor, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateMonitorFailed, monitorKey)
-		return errors.Wrap(err, "failed to start prometheus")
-	}
-	monitor.Status.Prometheus = chubaoapi.PrometheusStatusReady
 
 	graf := grafana.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
 
