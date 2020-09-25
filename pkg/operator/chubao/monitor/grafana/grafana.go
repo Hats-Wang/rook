@@ -278,6 +278,10 @@ func createEnv(grafana *Grafana) []corev1.EnvVar {
 				},
 			},
 		},
+		{
+			Name:  "GF_USERS_ALLOW_SIGN_UP",
+			Value: "false",
+		},
 	}
 }
 

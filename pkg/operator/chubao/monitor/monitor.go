@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
@@ -17,18 +16,14 @@ import (
 	"github.com/rook/rook/pkg/operator/chubao/monitor/grafana"
 	"github.com/rook/rook/pkg/operator/chubao/monitor/prometheus"
 	corev1 "k8s.io/api/core/v1"
-	Error "k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -179,54 +174,25 @@ func (e *MonitorEventHandler) deleteMonitor(monitor *chubaoapi.ChubaoMonitor) er
 func (e *MonitorEventHandler) createMonitor(monitor *chubaoapi.ChubaoMonitor) error {
 	ownerRef := newMonitorOwnerRef(monitor)
 	monitorKey := fmt.Sprintf("%s/%s", monitor.Name, monitor.Namespace)
+
+	err := CreateNewConfigmap(monitor)
+	if err != nil {
+		e.recorder.Eventf(monitor, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateMonitorFailed, monitorKey)
+		return errors.Wrap(err, "failed to create configmap")
+	}
 	prom := prometheus.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
 
 	if err := prom.Deploy(); err != nil {
-		monitor.Status.Prometheus = chubaoapi.PrometheusStatusFailure
 		e.recorder.Eventf(monitor, corev1.EventTypeWarning, constants.ErrCreateFailed, MessageCreateMonitorFailed, monitorKey)
 		return errors.Wrap(err, "failed to start prometheus")
-	}
-	monitor.Status.Prometheus = chubaoapi.PrometheusStatusReady
-
-	clt, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
-	if err != nil {
-		fmt.Println("failed to create client")
-		return err
-	}
-	configmap := &corev1.ConfigMap{}
-
-	err = clt.Get(context.Background(), types.NamespacedName{Name: "monitor-config", Namespace: monitor.Namespace}, configmap)
-	if err != nil && Error.IsNotFound(err) {
-		monitor.Status.Configmap = chubaoapi.ConfigmapStatusFailure
-		return errors.Wrap(err, "Failed to find chubaomonitor configmap")
-	} else if err != nil {
-		monitor.Status.Configmap = chubaoapi.ConfigmapStatusFailure
-		fmt.Println("Failed to fetch chubaomonitor configmap")
-		return errors.Wrap(err, "Failed to fetch chubaomonitor configmap")
-	} else {
-
-		err = AddDataToConfigmap(configmap)
-		if err != nil {
-			monitor.Status.Configmap = chubaoapi.ConfigmapStatusFailure
-			return errors.Wrap(err, "Failed to add chubaofs.json and dashboard.yml to configmap")
-		}
-		err = clt.Update(context.Background(), configmap)
-		if err != nil {
-
-			return errors.Wrap(err, "Failed to update chubaomonitor configmap to the newest")
-		}
-		fmt.Println("configmap is ready")
-		monitor.Status.Configmap = chubaoapi.ConfigmapStatusReady
 	}
 
 	graf := grafana.New(e.context, e.kubeInformerFactory, e.recorder, monitor, ownerRef)
 
 	if err := graf.Deploy(); err != nil {
-		monitor.Status.Grafana = chubaoapi.GrafanaStatusFailure
 		e.recorder.Eventf(monitor, corev1.EventTypeWarning, constants.SuccessCreated, MessageCreateMonitorFailed, monitorKey)
 		return errors.Wrap(err, "failed to start grafana")
 	}
-	monitor.Status.Grafana = chubaoapi.GrafanaStatusReady
 
 	e.recorder.Eventf(monitor, corev1.EventTypeNormal, constants.SuccessCreated, MessageMonitorCreated, monitorKey)
 	return nil

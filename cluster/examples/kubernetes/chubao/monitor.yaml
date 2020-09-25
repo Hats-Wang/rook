@@ -26,3 +26,4 @@ spec:
     image: grafana/grafana:6.4.4
     imagePullPolicy: IfNotPresent
     port: 3000
+    prometheusUrl: http://prometheus-service.rook-chubao.svc.cluster.local:9090

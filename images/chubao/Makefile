@@ -28,6 +28,17 @@ do.build:
 	@echo === container build $(CHUBAO_OPERATOR_IMAGE)
 	@cp Dockerfile $(TEMP)
 	@cp $(OUTPUT_DIR)/bin/linux_$(GOARCH)/rook $(TEMP)
+	@mkdir -p $(TEMP)/monitor/prometheus
+	@mkdir -p $(TEMP)/monitor/grafana
+	@mkdir $(TEMP)/monitor/grafana/dashboards
+	@mkdir $(TEMP)/monitor/grafana/datasources
+	@curl https://raw.githubusercontent.com/chubaofs/chubaofs/master/docker/monitor/prometheus/prometheus.yml -o $(TEMP)/monitor/prometheus/prometheus.yml
+	@curl https://raw.githubusercontent.com/chubaofs/chubaofs/master/docker/monitor/grafana/init.sh -o $(TEMP)/monitor/grafana/init.sh
+	@curl https://raw.githubusercontent.com/chubaofs/chubaofs/master/docker/monitor/grafana/grafana.ini -o $(TEMP)/monitor/grafana/grafana.ini
+	@curl https://raw.githubusercontent.com/chubaofs/chubaofs/master/docker/monitor/grafana/provisioning/dashboards/chubaofs.json -o $(TEMP)/monitor/grafana/dashboards/chubaofs.json
+	@curl https://raw.githubusercontent.com/chubaofs/chubaofs/master/docker/monitor/grafana/provisioning/dashboards/dashboard.yml  -o $(TEMP)/monitor/grafana/dashboards/dashboard.yml
+	@curl https://raw.githubusercontent.com/chubaofs/chubaofs/master/docker/monitor/grafana/provisioning/datasources/datasource.yml -o $(TEMP)/monitor/grafana/datasources/datasource.yml
+	@cd $(TEMP)
 	@$(DOCKERCMD) build $(BUILD_ARGS) \
 		--build-arg ARCH=$(GOARCH) \
     	--build-arg TINI_VERSION=$(TINI_VERSION) \

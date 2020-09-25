@@ -220,6 +220,7 @@ type GrafanaSpec struct {
 	Port            int32                   `json:"port,omitempty"`
 	ImagePullPolicy v1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	Resources       v1.ResourceRequirements `json:"resources,omitempty"`
+	PrometheusUrl   string                  `json:"prometheusUrl"`
 }
 
 type MonitorSpec struct {
