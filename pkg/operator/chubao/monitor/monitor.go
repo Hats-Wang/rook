@@ -48,6 +48,7 @@ type MonitorEventHandler struct {
 	kubeInformerFactory kubeinformers.SharedInformerFactory
 	queue               workqueue.RateLimitingInterface
 	recorder            record.EventRecorder
+	stopCh              chan struct{}
 }
 
 func New(
@@ -63,6 +64,7 @@ func New(
 		kubeInformerFactory: kubeInformerFactory,
 		recorder:            recorder,
 		queue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), monitorQueueName),
+		stopCh:              make(chan struct{}),
 	}
 }
 
@@ -97,7 +99,7 @@ func (e *MonitorEventHandler) OnUpdate(oldObj, newObj interface{}) {
 
 // OnDelete calls DeleteFunc if it's not nil.
 func (e *MonitorEventHandler) OnDelete(obj interface{}) {
-	newMonitor, ok := obj.(*chubaoapi.ChubaoCluster)
+	newMonitor, ok := obj.(*chubaoapi.ChubaoMonitor)
 	if !ok {
 		return
 	}
@@ -167,6 +169,7 @@ func (e *MonitorEventHandler) sync(monitor *chubaoapi.ChubaoMonitor) error {
 func (e *MonitorEventHandler) deleteMonitor(monitor *chubaoapi.ChubaoMonitor) error {
 	monitor.Status.Grafana = chubaoapi.GrafanaStatusFailure
 	monitor.Status.Prometheus = chubaoapi.PrometheusStatusFailure
+	close(e.stopCh)
 	fmt.Printf("delete ChubaoMonitor: %v\n", monitor)
 	return nil
 }
@@ -195,6 +198,8 @@ func (e *MonitorEventHandler) createMonitor(monitor *chubaoapi.ChubaoMonitor) er
 	}
 
 	e.recorder.Eventf(monitor, corev1.EventTypeNormal, constants.SuccessCreated, MessageMonitorCreated, monitorKey)
+
+	e.startMonitoring(e.stopCh, monitor)
 	return nil
 }
 

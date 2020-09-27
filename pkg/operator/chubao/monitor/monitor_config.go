@@ -180,6 +180,7 @@ func addDatasourceYml(cfg *corev1.ConfigMap) error {
 	return nil
 }
 
+//The first parameter is the location of file in operator container. The second parameter is the index of the file in configmap and the name of the file.
 func addNewFile(filePath, nameInCfg string, cfg *corev1.ConfigMap) error {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
