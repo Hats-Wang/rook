@@ -20,7 +20,7 @@ spec:
     imagePullPolicy: IfNotPresent
     port: 9090
     hostPath: 
-      Path: /var/lib/chubaofs_prometheus
+      path: /var/lib/chubaofs_prometheus
     consulUrl: http://consul-service.rook-chubao.svc.cluster.local:8500
   grafana:
     image: grafana/grafana:6.4.4
